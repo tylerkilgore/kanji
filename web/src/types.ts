@@ -36,6 +36,10 @@ export type VocabItem = {
 
 export type DataFile = { builtAt: string; kanji: KanjiItem[]; vocab: VocabItem[]; components: Record<string, Component> };
 
+// An example sentence for a word, from Tatoeba: Japanese, English, and the word as it
+// appears in the sentence (inflected: 行った for 行く), for highlighting.
+export type Sentence = { j: string; e: string; w: string };
+
 // KanjiVG stroke paths in drawing order (109×109 viewBox), plus stroke-number label positions.
 export type StrokeData = { d: string[]; n: [number, number][] };
 
@@ -87,6 +91,7 @@ export type Settings = {
   kanjiPerDay: number;
   vocabPerDay: number;
   retention: number; // FSRS desired retention, 0.7–0.97
+  kanjiPrompt: 'meaning' | 'reading'; // what kanji review cards ask for; words always ask the reading
 };
 
 export type KanjiListItem = Pick<KanjiItem, 'char' | 'jlpt' | 'status'> & { meaning: string };

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Lesson } from './types.ts';
 import { api } from './store.ts';
 import StrokeOrder from './StrokeOrder.tsx';
+import { Example, SpeakButton } from './Example.tsx';
 import { PartsHint } from './Parts.tsx';
 import { LevelBadge, Readings, Screen, VocabRow, kanjiHref } from './ui.tsx';
 
@@ -88,8 +89,9 @@ export default function LearnSession() {
               <div className={`prompt jp v len-${Math.min(lesson.item.word.length, 6)}`}>{lesson.item.word}</div>
             </div>
             <div className="reveal">
-              <p className="big-reading jp">{lesson.item.readings.join('・')}</p>
+              <p className="big-reading jp">{lesson.item.readings.join('・')}<SpeakButton text={lesson.item.readings[0]} /></p>
               <p className="meaning">{lesson.item.meaning}</p>
+              <Example id={lesson.item.id} />
               {lesson.item.alt.length > 0 && <p className="muted">Also written {lesson.item.alt.join('、')}</p>}
               <div className="chips">
                 {lesson.item.kanji.map((k) => (

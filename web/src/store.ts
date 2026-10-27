@@ -5,13 +5,13 @@
 import { createEmptyCard, fsrs, type Card, type Grade } from 'ts-fsrs';
 import type {
   CardKind, CardStatus, DataFile, ExportFile, IntervalPreview, KanjiDetail, KanjiItem, KanjiListItem,
-  Lesson, PartDetail, Review, Settings, SoundFamily, StrokeData, StudyEvent, Summary, VocabDetail, VocabItem,
+  Lesson, PartDetail, Review, Sentence, Settings, SoundFamily, StrokeData, StudyEvent, Summary, VocabDetail, VocabItem,
 } from './types.ts';
 import { plainOn } from './kana.ts';
 
 // A card counts as mastered once FSRS expects to remember it for three weeks.
 const MASTERED_STABILITY = 21;
-const DEFAULT_SETTINGS: Settings = { kanjiPerDay: 8, vocabPerDay: 25, retention: 0.9 };
+const DEFAULT_SETTINGS: Settings = { kanjiPerDay: 8, vocabPerDay: 25, retention: 0.9, kanjiPrompt: 'meaning' };
 
 // --- IndexedDB -------------------------------------------------------------
 
@@ -360,6 +360,14 @@ let strokesFile: Promise<Record<string, StrokeData>> | null = null;
 export function strokes(char: string): Promise<StrokeData | null> {
   strokesFile ??= fetch('data/strokes.json').then((r) => r.json());
   return strokesFile.then((s) => s[char] ?? null);
+}
+
+// --- example sentences (loaded lazily, like strokes) ----------------------------
+
+let sentencesFile: Promise<Record<string, Sentence>> | null = null;
+export function sentence(vocabId: string): Promise<Sentence | null> {
+  sentencesFile ??= fetch('data/sentences.json').then((r) => r.json());
+  return sentencesFile.then((s) => s[vocabId] ?? null);
 }
 
 // --- public API --------------------------------------------------------------

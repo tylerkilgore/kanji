@@ -74,7 +74,9 @@ export function LevelBadge({ jlpt }: { jlpt: number | null }) {
 export function KanaInput(props: {
   value: string; onChange: (v: string) => void; onEnter: () => void;
   readOnly?: boolean; placeholder?: string; className?: string;
+  kana?: boolean; // convert romaji to kana as you type (default); false for English answers
 }) {
+  const convert = props.kana === false ? (s: string) => s : liveKana;
   const ref = useRef<HTMLInputElement>(null);
   const composing = useRef(false);
   useEffect(() => { ref.current?.focus({ preventScroll: true }); }, [props.readOnly]);
@@ -82,14 +84,14 @@ export function KanaInput(props: {
     <input
       ref={ref}
       className={props.className}
-      lang="ja"
+      lang={props.kana === false ? 'en' : 'ja'}
       value={props.value}
       readOnly={props.readOnly}
       placeholder={props.placeholder}
       autoCapitalize="none" autoComplete="off" autoCorrect="off" spellCheck={false} enterKeyHint="go"
       onCompositionStart={() => { composing.current = true; }}
-      onCompositionEnd={(e) => { composing.current = false; props.onChange(liveKana(e.currentTarget.value)); }}
-      onChange={(e) => props.onChange(composing.current ? e.target.value : liveKana(e.target.value))}
+      onCompositionEnd={(e) => { composing.current = false; props.onChange(convert(e.currentTarget.value)); }}
+      onChange={(e) => props.onChange(composing.current ? e.target.value : convert(e.target.value))}
       onKeyDown={(e) => {
         if (e.key === 'Enter' && !composing.current && !e.nativeEvent.isComposing) { e.preventDefault(); props.onEnter(); }
       }}

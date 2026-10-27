@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Review } from './types.ts';
+import { useEffect, useRef, useState } from 'react';
+import type { Review, Settings } from './types.ts';
 import { api } from './store.ts';
 import { isCorrect, kanjiAnswers, normalize } from './kana.ts';
+import { Example, SpeakButton } from './Example.tsx';
+import { meaningCorrect } from './meaning.ts';
 import { PartsHint } from './Parts.tsx';
 import { KanaInput, LevelBadge, Readings, Screen, VocabRow, kanjiHref } from './ui.tsx';
 
@@ -12,8 +14,16 @@ const RATINGS = [
   { value: 4, label: 'Easy' },
 ] as const;
 
-const accepted = (r: Review) =>
-  r.kind === 'kanji' ? kanjiAnswers(r.item) : r.item.readings.map(normalize);
+type Prompt = Settings['kanjiPrompt'];
+
+// Kanji cards ask for the meaning (or, if set, any reading); word cards always ask the reading.
+const asksMeaning = (r: Review, prompt: Prompt) => r.kind === 'kanji' && prompt === 'meaning';
+
+function check(r: Review, prompt: Prompt, given: string): boolean {
+  if (asksMeaning(r, prompt)) return r.kind === 'kanji' && meaningCorrect(given, r.item.meanings);
+  const accepted = r.kind === 'kanji' ? kanjiAnswers(r.item) : r.item.readings.map(normalize);
+  return isCorrect(given, accepted);
+}
 
 export default function ReviewSession() {
   const [queue, setQueue] = useState<Review[] | null>(null);
@@ -22,20 +32,20 @@ export default function ReviewSession() {
   const [result, setResult] = useState<null | { correct: boolean }>(null);
   const [stats, setStats] = useState({ done: 0, correct: 0 });
   const [busy, setBusy] = useState(false);
+  const [prompt, setPrompt] = useState<Prompt>('meaning');
   const started = useRef(Date.now());
 
   // Cards in short learning steps (1m, 10m) come due again during a session,
   // so refetch whenever we reach the end of the current batch.
   const load = () => api.reviews(20).then((q) => { setQueue(q); setIdx(0); });
-  useEffect(() => { load(); }, []);
+  useEffect(() => { api.settings().then((s) => setPrompt(s.kanjiPrompt)); load(); }, []);
 
   const card = queue?.[idx];
-  const answers = useMemo(() => (card ? accepted(card) : []), [card]);
 
   const submit = (skip = false) => {
     if (!card || result) return;
     if (!skip && !given.trim()) return;
-    setResult({ correct: !skip && isCorrect(given, answers) });
+    setResult({ correct: !skip && check(card, prompt, given) });
   };
 
   const rate = async (rating: number) => {
@@ -82,26 +92,29 @@ export default function ReviewSession() {
   }
 
   const isKanji = card.kind === 'kanji';
-  const prompt = isKanji ? card.item.char : card.item.word;
+  const meaningCard = asksMeaning(card, prompt);
+  const shown = isKanji ? card.item.char : card.item.word;
 
   return (
     <Screen back="#/" title={<span className="counter">{stats.done} done · {queue.length - idx} in batch</span>}>
       <div className={`study ${result ? (result.correct ? 'is-right' : 'is-wrong') : ''}`}>
         <div className={`prompt-card ${card.kind}`}>
           <div className="prompt-meta">
-            <span className="kind">{isKanji ? 'Kanji · any reading' : 'Vocabulary · reading'}</span>
+            <span className="kind">{isKanji ? (meaningCard ? 'Kanji · meaning' : 'Kanji · any reading') : 'Vocabulary · reading'}</span>
             <LevelBadge jlpt={card.item.jlpt} />
           </div>
-          <div className={`prompt jp ${isKanji ? 'k' : 'v'} len-${Math.min(prompt.length, 6)}`}>{prompt}</div>
+          <div className={`prompt jp ${isKanji ? 'k' : 'v'} len-${Math.min(shown.length, 6)}`}>{shown}</div>
         </div>
 
         <div className="answer-row">
           <KanaInput
+            key={meaningCard ? 'en' : 'ja'}
             className="answer"
+            kana={!meaningCard}
             value={given}
             onChange={setGiven}
             readOnly={!!result}
-            placeholder="type the reading (romaji ok)"
+            placeholder={meaningCard ? 'type the meaning in English' : 'type the reading (romaji ok)'}
             onEnter={() => (result ? rate(result.correct ? 3 : 1) : submit())}
           />
           {!result && <button className="btn ghost" onClick={() => submit(true)}>?</button>}
@@ -144,8 +157,9 @@ export default function ReviewSession() {
                 </>
               ) : (
                 <>
-                  <p className="big-reading jp">{card.item.readings.join('・')}</p>
+                  <p className="big-reading jp">{card.item.readings.join('・')}<SpeakButton text={card.item.readings[0]} /></p>
                   <p className="meaning">{card.item.meaning}</p>
+                  <Example id={card.item.id} />
                   {card.item.alt.length > 0 && <p className="muted">Also written {card.item.alt.join('、')}</p>}
                   <div className="chips">
                     {card.item.kanji.map((k) => (

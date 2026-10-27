@@ -124,12 +124,14 @@ export default function Guide() {
 
         <h3>How the app trains this</h3>
         <p>
-          <b>Kanji cards</b> accept any reading. They build up the set of sounds a kanji can make. When you're unsure,
-          give the on'yomi, which is the one used in most compounds.
+          <b>Kanji cards</b> ask for the meaning. Within each level, a kanji's parts are taught before the kanji
+          itself, so each new kanji is made of pieces you already know. Readings aren't drilled one kanji at a time.
+          (If you'd rather type any reading instead, change it in Settings.)
         </p>
         <p>
-          <b>Word cards</b> unlock once you've learned a word's kanji. They train the skill that matters: choosing
-          the right reading in context. Expect most of your progress to come from these.
+          <b>Word cards</b> unlock once you've learned a word's kanji and ask for the reading. They train the skill
+          that matters: choosing the right reading in context. Example sentences and audio show the word in use.
+          After a few hundred kanji, you'll start guessing the readings of new words from the ones you know.
         </p>
       </div>
     </Screen>

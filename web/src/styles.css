@@ -196,6 +196,23 @@ main.with-tabs .screen { padding-bottom: calc(5rem + env(safe-area-inset-bottom)
 .chip { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.7rem 0.3rem 0.4rem; border: 1px solid var(--line); border-radius: 99px; font-size: 0.9rem; }
 .chip .jp { font-size: 1.3rem; line-height: 1; }
 
+/* --- example sentences and audio -------------------------------------------------- */
+.example { display: flex; align-items: flex-start; gap: 0.25rem; margin: 0.75rem 0; padding: 0.65rem 0.5rem 0.65rem 0.85rem; background: var(--card); border: 1px solid var(--line); border-radius: 12px; text-align: left; }
+.example > div { flex: 1; }
+.example p { margin: 0; }
+.example .speak { margin: 0; flex-shrink: 0; }
+.ex-ja { font-size: 1.15rem; line-height: 1.6; }
+.ex-ja mark { background: color-mix(in srgb, var(--accent-2) 22%, transparent); color: inherit; border-radius: 4px; padding: 0 0.1em; }
+.ex-en { margin-top: 0.2rem !important; font-size: 0.88rem; color: var(--muted); }
+.speak {
+  display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; margin-left: 0.4rem;
+  width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--muted);
+}
+.speak:active { color: var(--accent-2); }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; flex-shrink: 0; }
+.seg button { padding: 0.55rem 0.8rem; background: none; border: 0; color: var(--muted); font: inherit; font-size: 0.9rem; }
+.seg button.on { background: var(--ink); color: var(--bg); font-weight: 600; }
+
 /* --- readings guide ------------------------------------------------------------ */
 .guide { padding-bottom: 2rem; }
 .guide p { margin: 0.5rem 0; }

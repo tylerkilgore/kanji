@@ -1,5 +1,6 @@
 // Fetches the source datasets (cached in data/raw/) and writes the static data
-// files the web app loads: web/public/data/kanji.json and strokes.json.
+// files the web app loads: web/public/data/kanji.json, strokes.json and
+// sentences.json.
 // Safe to re-run: study progress lives in the browser and is keyed by kanji
 // character and word|reading, which stay stable across rebuilds.
 //
@@ -8,11 +9,13 @@
 //   vocab     jamsinclair/open-anki-jlpt-decks (MIT; Waller JLPT vocab lists)
 //   fallback  scriptin/jmdict-simplified, common words (CC BY-SA 4.0, EDRDG JMdict)
 //   strokes   KanjiVG (CC BY-SA 3.0, Ulrich Apel), also components and sound parts
+//   sentences Tatoeba (CC BY 2.0 FR), Japanese–English pairs with word indices
 
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { unzipSync } from 'fflate';
-import type { Component, DataFile, Part, StrokeData } from '../web/src/types.ts';
+import type { Component, DataFile, Part, Sentence, StrokeData } from '../web/src/types.ts';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const RAW = join(ROOT, 'data', 'raw');
@@ -299,22 +302,113 @@ for (const { phon } of partsOf.values()) if (phon) families.set(phon, (families.
 console.log(`components: ${[...partsOf.values()].filter((p) => p.parts.length).length} kanji split into parts; `
   + `${[...partsOf.values()].filter((p) => p.phon).length} with a sound part (${[...families.values()].filter((n) => n > 1).length} shared families)`);
 
+// --- lesson order ------------------------------------------------------------
+// Within a level, teach a kanji's parts before the kanji itself (生 before 青 in N5),
+// so each new kanji is built from pieces you've already met.
+
+const kanjiByChar = new Map(kanji);
+const lessonOrder: typeof kanji = [];
+const visited = new Set<string>();
+let pulled = 0;
+function place(c: string, level: number, asPart = false) {
+  const k = kanjiByChar.get(c);
+  if (!k || k.jlpt_new !== level || visited.has(c)) return;
+  visited.add(c);
+  const { parts = [], phon } = partsOf.get(c) ?? {};
+  for (const p of [...parts.map((p) => p.c), ...(phon ? [phon] : [])]) place(p, level, true);
+  lessonOrder.push([c, k]);
+  if (asPart) pulled++;
+}
+for (const [c, k] of kanji) place(c, k.jlpt_new!);
+console.log(`lesson order: ${pulled} kanji moved earlier to come before kanji built from them`);
+
+// --- example sentences ---------------------------------------------------------
+// Tatoeba's Japanese indices (from the Tanaka corpus) tag each sentence with the
+// dictionary form and reading of its words, as in 日本(にほん){日本}. Match those to
+// our vocab, keep the clearest short sentence per word, and pair it with English.
+
+const bunzip = (path: string, ...tarMember: string[]) => {
+  const r = tarMember.length
+    ? spawnSync('tar', ['-xjOf', path, ...tarMember], { maxBuffer: 1 << 30 })
+    : spawnSync('bunzip2', ['-c', path], { maxBuffer: 1 << 30 });
+  if (r.status !== 0) throw new Error(`decompressing ${path}: ${r.stderr}`);
+  return r.stdout.toString('utf8');
+};
+const tatoeba = (f: string) => `https://downloads.tatoeba.org/exports/${f}`;
+const indices = bunzip(await fetchCached('jpn_indices.tar.bz2', tatoeba('jpn_indices.tar.bz2')), 'jpn_indices.csv');
+const jpnText = new Map<string, string>();
+for (const line of bunzip(await fetchCached('jpn_sentences.tsv.bz2', tatoeba('per_language/jpn/jpn_sentences.tsv.bz2'))).split('\n')) {
+  const [id, , text] = line.split('\t');
+  if (text) jpnText.set(id, text);
+}
+
+const outVocab = vocab.filter((v) => [...v.word].some((ch) => kanjiSet.has(ch)));
+const vocabByForm = new Map<string, Vocab[]>();
+for (const v of outVocab) {
+  for (const f of [v.word, ...v.alt]) vocabByForm.set(f, [...(vocabByForm.get(f) ?? []), v]);
+}
+const vocabId = (v: Vocab) => `${v.word}|${v.readings[0]}`;
+
+// Prefer sentences around 15 characters, checked by Tatoeba's editors (~), and
+// without kanji harder than the word itself.
+const levelOf = (ch: string) => kanjiByChar.get(ch)?.jlpt_new ?? 0;
+function sentenceCost(text: string, v: Vocab, checked: boolean) {
+  const wordLevel = v.jlpt ?? Math.min(...[...v.word].map(levelOf).filter(Boolean));
+  const harder = [...text].filter((ch) => /\p{Script=Han}/u.test(ch) && levelOf(ch) < wordLevel).length;
+  return 3 * harder + Math.abs(text.length - 15) / 5 + (checked ? 0 : 1.5);
+}
+
+type Candidate = Sentence & { cost: number; enId: string };
+const best = new Map<string, Candidate>();
+for (const line of indices.split('\n')) {
+  const [jaId, enId, bline] = line.split('\t');
+  const ja = jpnText.get(jaId);
+  if (!bline || !ja || ja.length > 40) continue;
+  for (const token of bline.split(' ')) {
+    const m = token.match(/^([^([{~]+)(?:\(([^)]*)\))?(?:\[\d+\])?(?:\{([^}]*)\})?(~)?$/);
+    if (!m) continue;
+    const [, head, reading, surface = head, checked] = m;
+    for (const v of vocabByForm.get(head) ?? []) {
+      if (reading && !reading.startsWith('#') && !v.readings.includes(reading)) continue;
+      if (!ja.includes(surface) || !/\p{Script=Han}/u.test(surface)) continue; // skip kana-only uses (メシ for 飯)
+      const cost = sentenceCost(ja, v, !!checked);
+      const id = vocabId(v);
+      if (cost < (best.get(id)?.cost ?? Infinity)) best.set(id, { j: ja, e: '', w: surface, cost, enId });
+    }
+  }
+}
+
+const wantedEn = new Set([...best.values()].map((c) => c.enId));
+const enText = new Map<string, string>();
+for (const line of bunzip(await fetchCached('eng_sentences.tsv.bz2', tatoeba('per_language/eng/eng_sentences.tsv.bz2'))).split('\n')) {
+  const tab = line.indexOf('\t');
+  const id = line.slice(0, tab);
+  if (wantedEn.has(id)) enText.set(id, line.slice(line.indexOf('\t', tab + 1) + 1));
+}
+const sentences: Record<string, Sentence> = {};
+for (const [id, c] of best) {
+  const e = enText.get(c.enId);
+  if (e) sentences[id] = { j: c.j, e, w: c.w };
+}
+console.log(`sentences: ${Object.keys(sentences).length} of ${outVocab.length} words`);
+
 // --- write data files ------------------------------------------------------
 
 const data: DataFile = {
   builtAt: new Date().toISOString(),
-  kanji: kanji.map(([c, k]) => ({
+  kanji: lessonOrder.map(([c, k]) => ({
     char: c, jlpt: k.jlpt_new!, strokes: k.strokes, grade: k.grade, freq: k.freq,
     meanings: k.meanings, on: k.readings_on, kun: k.readings_kun,
     parts: partsOf.get(c)?.parts ?? [], phon: partsOf.get(c)?.phon,
   })),
   components: componentInfo,
-  vocab: vocab.filter((v) => [...v.word].some((ch) => kanjiSet.has(ch))).map((v) => ({
-    id: `${v.word}|${v.readings[0]}`, word: v.word, alt: v.alt, readings: v.readings,
+  vocab: outVocab.map((v) => ({
+    id: vocabId(v), word: v.word, alt: v.alt, readings: v.readings,
     meaning: v.meaning, jlpt: v.jlpt, source: v.source,
   })),
 };
 
 writeFileSync(join(OUT, 'kanji.json'), JSON.stringify(data));
 writeFileSync(join(OUT, 'strokes.json'), JSON.stringify(strokes));
-console.log(`wrote ${OUT}/kanji.json and strokes.json (delete data/raw/ to refetch sources)`);
+writeFileSync(join(OUT, 'sentences.json'), JSON.stringify(sentences));
+console.log(`wrote ${OUT}/kanji.json, strokes.json and sentences.json (delete data/raw/ to refetch sources)`);

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Settings } from './types.ts';
 import { api } from './store.ts';
 import StrokeOrder from './StrokeOrder.tsx';
+import { Example, SpeakButton } from './Example.tsx';
 import { Parts } from './Parts.tsx';
 import { LevelBadge, Readings, Screen, StatusTag, VocabRow, kanjiHref, useLoad } from './ui.tsx';
 
@@ -162,8 +163,9 @@ export function VocabPage({ id }: { id: string }) {
     <Screen back="history" title={<><LevelBadge jlpt={v.jlpt} /> <StatusTag status={v.status} /></>}>
       <div className="detail">
         <div className={`hero jp v len-${Math.min(v.word.length, 6)}`}>{v.word}</div>
-        <p className="big-reading jp">{v.readings.join('・')}</p>
+        <p className="big-reading jp">{v.readings.join('・')}<SpeakButton text={v.readings[0]} /></p>
         <p className="meaning">{v.meaning}</p>
+        <Example id={v.id} />
         {v.alt.length > 0 && <p className="muted">Also written {v.alt.join('、')}</p>}
         <h3>Kanji</h3>
         <div className="vlist">
@@ -200,13 +202,23 @@ export function SettingsPage() {
         <Field label="New words per day" hint="Words unlock once you’ve learned all their kanji.">
           <Stepper value={s.vocabPerDay} step={5} min={0} max={300} onChange={(v) => save({ vocabPerDay: v })} />
         </Field>
+        <Field label="Kanji cards ask for" hint="Word cards always ask the reading.">
+          <div className="seg" role="group">
+            {(['meaning', 'reading'] as const).map((p) => (
+              <button key={p} className={s.kanjiPrompt === p ? 'on' : ''} aria-pressed={s.kanjiPrompt === p} onClick={() => save({ kanjiPrompt: p })}>
+                {p === 'meaning' ? 'Meaning' : 'Any reading'}
+              </button>
+            ))}
+          </div>
+        </Field>
         <Field label="Target retention" hint="Higher means more frequent reviews. 90% is a good default.">
           <Stepper value={Math.round(s.retention * 100)} step={1} min={70} max={97} suffix="%" onChange={(v) => save({ retention: v / 100 })} />
         </Field>
         <Sync onImported={() => api.settings().then(setS)} />
         <p className="muted small credits">
           Kanji data from KANJIDIC2 via kanji-data, JLPT levels from Jonathan Waller’s lists, example words from
-          JMdict (EDRDG, CC BY-SA 4.0), stroke order from KanjiVG by Ulrich Apel (CC BY-SA 3.0).
+          JMdict (EDRDG, CC BY-SA 4.0), stroke order and components from KanjiVG by Ulrich Apel (CC BY-SA 3.0),
+          example sentences from Tatoeba (CC BY 2.0 FR).
         </p>
       </div>
     </Screen>
