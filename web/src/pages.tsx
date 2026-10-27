@@ -57,6 +57,12 @@ export function Home() {
           <Bar label="Words" {...s.vocab} />
           <p className="legend"><i className="lg-m" /> mastered (3+ weeks) <i className="lg-s" /> started</p>
         </section>
+
+        <a className="guide-link" href="#/guide">
+          <span className="jp">音訓</span>
+          <span><b>How readings work</b><small>On and kun readings, which one a word uses, and sound parts</small></span>
+          <span className="chev">›</span>
+        </a>
       </div>
     </Screen>
   );
@@ -134,6 +140,7 @@ export function KanjiPage({ char }: { char: string }) {
         <div className="hero jp">{k.char}</div>
         <p className="meaning">{k.meanings.join(', ')}</p>
         <Readings k={k} />
+        <a className="more center" href="#/guide">How readings work ›</a>
         <p className="muted small center">
           {k.grade ? `Grade ${k.grade}` : 'Secondary school'}{k.freq ? ` · #${k.freq} most common` : ''}
         </p>
