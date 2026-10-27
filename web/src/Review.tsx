@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Review } from './types.ts';
 import { api } from './store.ts';
 import { isCorrect, kanjiAnswers, normalize } from './kana.ts';
+import { PartsHint } from './Parts.tsx';
 import { KanaInput, LevelBadge, Readings, Screen, VocabRow, kanjiHref } from './ui.tsx';
 
 const RATINGS = [
@@ -134,6 +135,7 @@ export default function ReviewSession() {
                 <>
                   <p className="meaning">{card.item.meanings.join(', ')}</p>
                   <Readings k={card.item} />
+                  <PartsHint k={card.item} />
                   <div className="vlist">
                     {card.item.vocab.filter((v) => v.status !== 'locked').concat(card.item.vocab.filter((v) => v.status === 'locked'))
                       .slice(0, 4).map((v) => <VocabRow key={v.id} v={v} />)}

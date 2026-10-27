@@ -7,12 +7,12 @@
 //   kanji     davidluzgouveia/kanji-data (MIT; KANJIDIC2-derived, Waller JLPT levels)
 //   vocab     jamsinclair/open-anki-jlpt-decks (MIT; Waller JLPT vocab lists)
 //   fallback  scriptin/jmdict-simplified, common words (CC BY-SA 4.0, EDRDG JMdict)
-//   strokes   KanjiVG (CC BY-SA 3.0, Ulrich Apel)
+//   strokes   KanjiVG (CC BY-SA 3.0, Ulrich Apel), also components and sound parts
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { unzipSync } from 'fflate';
-import type { DataFile, StrokeData } from '../web/src/types.ts';
+import type { Component, DataFile, Part, StrokeData } from '../web/src/types.ts';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const RAW = join(ROOT, 'data', 'raw');
@@ -203,6 +203,76 @@ function round(d: string): string {
   return out;
 }
 
+// --- KanjiVG components ------------------------------------------------------
+// KanjiVG nests <g> groups for each component, with kvg:radical on the radical
+// and kvg:phon on the part that carries the on'yomi (飯 = 飠 + 反, phon="反").
+
+type Group = { attrs: Record<string, string>; kids: Group[] };
+
+const single = (c: string | undefined) => (c && [...c].length === 1 ? c : undefined);
+
+// kvg:phon values carry annotations: "今1" (split part), "員V" (variant), "叚V/反".
+const phonChar = (g: Group) =>
+  single(g.attrs.element) ?? single(g.attrs.phon?.split('/')[0].replace(/(right|[VT\d])+$/, ''));
+
+function components(svg: string): { parts: Part[]; phon?: string } {
+  const root: Group = { attrs: {}, kids: [] };
+  const stack = [root];
+  for (const m of svg.split('kvg:StrokeNumbers')[0].matchAll(/<g\b([^>]*)>|<\/g>/g)) {
+    if (m[0] === '</g>') { stack.pop(); continue; }
+    const g: Group = { attrs: Object.fromEntries([...m[1].matchAll(/kvg:(\w+)="([^"]*)"/g)].map((a) => [a[1], a[2]])), kids: [] };
+    stack.at(-1)!.kids.push(g);
+    stack.push(g);
+  }
+  const whole = root.kids[0]?.kids[0];
+  if (!whole) return { parts: [] };
+
+  const find = (g: Group, test: (g: Group) => boolean): Group | undefined =>
+    test(g) ? g : g.kids.map((k) => find(k, test)).find(Boolean);
+  const phonGroup = find(whole, (g) => 'phon' in g.attrs);
+  const phon = phonGroup && phonChar(phonGroup);
+
+  // Top-level parts: the first groups down each branch that name an element.
+  const tops: Group[] = [];
+  const walk = (g: Group) => { for (const k of g.kids) (k.attrs.element ? tops.push(k) : walk(k)); };
+  walk(whole);
+  const radical = tops.find((g) => g.attrs.radical === 'general') ?? tops.find((g) => g.attrs.radical === 'tradit');
+
+  const parts: Part[] = [];
+  for (const g of tops) {
+    const c = single(g.attrs.element);
+    if (!c || parts.some((p) => p.c === c)) continue; // skips KanjiVG's private "CDP-…" glyphs and split repeats
+    const part: Part = { c };
+    if (g === radical) part.r = 1;
+    if (phon && phonGroup && find(g, (x) => x === phonGroup)) part.p = 1;
+    parts.push(part);
+  }
+  return { parts: parts.length > 1 ? parts : [], phon };
+}
+
+// KANJIDIC names radical forms by their dictionary role ("Radical Number 9"), so give
+// common ones a plain meaning; others fall back to their first non-"radical" gloss.
+const COMPONENT_MEANINGS: Record<string, string> = {
+  亻: 'Person', 𠆢: 'Person', 艹: 'Grass', 辶: 'Walk', 阝: 'Hill / village', 宀: 'Roof', 冖: 'Cover',
+  罒: 'Net', 糹: 'Thread', 亠: 'Lid', 广: 'Building', 厂: 'Cliff', 疒: 'Sickness', 礻: 'Altar',
+  衤: 'Clothes', 刂: 'Knife', 冫: 'Ice', 犭: 'Animal', 攵: 'Strike', 夂: 'Go', 尸: 'Body', 彳: 'Step',
+  丿: 'Slash', 丶: 'Dot', 乚: 'Hook', 癶: 'Footsteps', 爫: 'Claw', 彐: 'Snout', 冂: 'Frame', 匚: 'Box',
+  囗: 'Enclosure', 勹: 'Wrap', 凵: 'Open box', 廴: 'Stretch', 疋: 'Foot', 戈: 'Halberd', 殳: 'Weapon',
+  丨: 'Line', 亅: 'Hook', 彡: 'Streaks', 厶: 'Private', 廾: 'Two hands', 覀: 'West', 儿: 'Legs',
+  '⺌': 'Small', '⺍': 'Small', '⻌': 'Walk', '⻖': 'Hill', '⻏': 'Village', '⺗': 'Heart', '⺨': 'Animal', '⺤': 'Claw',
+  '⺷': 'Sheep', '⺕': 'Snout',
+};
+
+function componentMeaning(c: string): string {
+  if (COMPONENT_MEANINGS[c]) return COMPONENT_MEANINGS[c];
+  const ms = kanjiSrc[c]?.meanings ?? [];
+  const plain = ms.find((m) => !/radical/i.test(m));
+  if (plain) return plain;
+  const named = ms.map((m) => m.match(/^(.+?)\s+radical/i)?.[1]).find(Boolean);
+  return named ?? '';
+}
+
+const partsOf = new Map<string, { parts: Part[]; phon?: string }>();
 const strokes: Record<string, StrokeData> = {};
 for (const [name, bytes] of Object.entries(svgs)) {
   const svg = new TextDecoder().decode(bytes);
@@ -213,8 +283,21 @@ for (const [name, bytes] of Object.entries(svgs)) {
     .sort((a, b) => Number(a[3]) - Number(b[3]))
     .map((m) => [Math.round(Number(m[1]) * 10) / 10, Math.round(Number(m[2]) * 10) / 10] as [number, number]);
   strokes[wanted.get(name)!] = { d: paths.map((p) => p.d), n: labels };
+  partsOf.set(wanted.get(name)!, components(svg));
 }
 console.log(`stroke data: ${Object.keys(strokes).length} kanji; missing: ${kanji.filter(([c]) => !strokes[c]).map(([c]) => c).join('') || 'none'}`);
+
+// Meanings and on'yomi for components that aren't themselves JLPT kanji.
+const componentInfo: Record<string, Component> = {};
+for (const { parts, phon } of partsOf.values()) {
+  for (const c of [...parts.map((p) => p.c), ...(phon ? [phon] : [])]) {
+    if (!kanjiSet.has(c)) componentInfo[c] ??= { m: componentMeaning(c), on: kanjiSrc[c]?.readings_on ?? [] };
+  }
+}
+const families = new Map<string, number>();
+for (const { phon } of partsOf.values()) if (phon) families.set(phon, (families.get(phon) ?? 0) + 1);
+console.log(`components: ${[...partsOf.values()].filter((p) => p.parts.length).length} kanji split into parts; `
+  + `${[...partsOf.values()].filter((p) => p.phon).length} with a sound part (${[...families.values()].filter((n) => n > 1).length} shared families)`);
 
 // --- write data files ------------------------------------------------------
 
@@ -223,7 +306,9 @@ const data: DataFile = {
   kanji: kanji.map(([c, k]) => ({
     char: c, jlpt: k.jlpt_new!, strokes: k.strokes, grade: k.grade, freq: k.freq,
     meanings: k.meanings, on: k.readings_on, kun: k.readings_kun,
+    parts: partsOf.get(c)?.parts ?? [], phon: partsOf.get(c)?.phon,
   })),
+  components: componentInfo,
   vocab: vocab.filter((v) => [...v.word].some((ch) => kanjiSet.has(ch))).map((v) => ({
     id: `${v.word}|${v.readings[0]}`, word: v.word, alt: v.alt, readings: v.readings,
     meaning: v.meaning, jlpt: v.jlpt, source: v.source,

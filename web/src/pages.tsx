@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Settings } from './types.ts';
 import { api } from './store.ts';
 import StrokeOrder from './StrokeOrder.tsx';
+import { Parts } from './Parts.tsx';
 import { LevelBadge, Readings, Screen, StatusTag, VocabRow, kanjiHref, useLoad } from './ui.tsx';
 
 function untilText(ms: number) {
@@ -136,6 +137,7 @@ export function KanjiPage({ char }: { char: string }) {
         <p className="muted small center">
           {k.grade ? `Grade ${k.grade}` : 'Secondary school'}{k.freq ? ` · #${k.freq} most common` : ''}
         </p>
+        <Parts k={k} />
         <h3>Stroke order</h3>
         <StrokeOrder char={k.char} />
         <h3>Words <small className="muted">{k.vocab.length}</small></h3>

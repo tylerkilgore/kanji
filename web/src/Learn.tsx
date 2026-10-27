@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Lesson } from './types.ts';
 import { api } from './store.ts';
 import StrokeOrder from './StrokeOrder.tsx';
+import { PartsHint } from './Parts.tsx';
 import { LevelBadge, Readings, Screen, VocabRow, kanjiHref } from './ui.tsx';
 
 const BATCH = 5;
@@ -69,6 +70,7 @@ export default function LearnSession() {
             <div className="reveal">
               <p className="meaning">{lesson.item.meanings.join(', ')}</p>
               <Readings k={lesson.item} />
+              <PartsHint k={lesson.item} />
               <p className="muted small">
                 {lesson.item.grade ? `Grade ${lesson.item.grade}` : 'Secondary school'}
                 {lesson.item.freq ? ` · #${lesson.item.freq} most common` : ''}

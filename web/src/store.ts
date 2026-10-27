@@ -5,8 +5,9 @@
 import { createEmptyCard, fsrs, type Card, type Grade } from 'ts-fsrs';
 import type {
   CardKind, CardStatus, DataFile, ExportFile, IntervalPreview, KanjiDetail, KanjiItem, KanjiListItem,
-  Lesson, Review, Settings, StrokeData, StudyEvent, Summary, VocabDetail, VocabItem,
+  Lesson, PartDetail, Review, Settings, SoundFamily, StrokeData, StudyEvent, Summary, VocabDetail, VocabItem,
 } from './types.ts';
+import { plainOn } from './kana.ts';
 
 // A card counts as mastered once FSRS expects to remember it for three weeks.
 const MASTERED_STABILITY = 21;
@@ -52,6 +53,7 @@ let kanjiByChar: Map<string, KanjiItem>;
 let vocabById: Map<string, VocabItem>;
 let vocabKanji: Map<string, string[]>; // vocab id → the JLPT kanji it contains
 let vocabByKanji: Map<string, VocabItem[]>;
+let soundFamilies: Map<string, KanjiItem[]>; // sound part → JLPT kanji built on it
 
 let events: StudyEvent[] = [];
 const eventIds = new Set<string>();
@@ -111,6 +113,12 @@ const ready: Promise<void> = (async () => {
       vocabByKanji.get(ch)!.push(v);
     }
   }
+  soundFamilies = new Map();
+  for (const k of data.kanji) {
+    if (!k.phon) continue;
+    if (!soundFamilies.has(k.phon)) soundFamilies.set(k.phon, []);
+    soundFamilies.get(k.phon)!.push(k);
+  }
   for (const list of vocabByKanji.values()) {
     list.sort((a, b) => (a.jlpt === null ? 1 : 0) - (b.jlpt === null ? 1 : 0) || (b.jlpt ?? 0) - (a.jlpt ?? 0) || a.word.length - b.word.length);
   }
@@ -143,9 +151,43 @@ const listItem = (k: KanjiItem): KanjiListItem =>
 
 // --- lookups ---------------------------------------------------------------
 
+function componentInfo(c: string): { meaning: string; on: string[]; kanji: boolean } {
+  const k = kanjiByChar.get(c);
+  if (k) return { meaning: k.meanings[0] ?? '', on: k.on, kanji: true };
+  const comp = data.components[c];
+  return { meaning: comp?.m ?? '', on: comp?.on ?? [], kanji: false };
+}
+
+// The kanji's sound part and the other JLPT kanji built on it, those that share
+// one of this kanji's on'yomi first: the pattern is a strong hint, not a rule.
+function soundFamily(k: KanjiItem): SoundFamily | null {
+  if (!k.phon) return null;
+  const own = new Set(k.on.map(plainOn));
+  const shares = (on: string[]) => on.some((r) => own.has(plainOn(r)));
+  const phonKanji = kanjiByChar.get(k.phon);
+  const members = [...(phonKanji ? [phonKanji] : []), ...soundFamilies.get(k.phon)!]
+    .filter((m) => m.char !== k.char)
+    .map((m) => ({
+      char: m.char, on: m.on, meaning: m.meanings[0] ?? '', shares: shares(m.on),
+      status: cardStatus(cards.get(cardKey('kanji', m.char))),
+    }))
+    .sort((a, b) => Number(b.shares) - Number(a.shares));
+  const info = componentInfo(k.phon);
+  const familyOn = new Set([...info.on, ...members.flatMap((m) => m.on)].map(plainOn));
+  return { char: k.phon, ...info, shared: k.on.filter((r) => familyOn.has(plainOn(r))), members };
+}
+
 function kanjiDetail(char: string): KanjiDetail | null {
   const k = kanjiByChar.get(char);
-  return k ? { ...withKanjiStatus(k), vocab: (vocabByKanji.get(char) ?? []).map(withVocabStatus) } : null;
+  if (!k) return null;
+  const partList: PartDetail[] = k.parts.map((p) => {
+    const { meaning, kanji } = componentInfo(p.c);
+    return { ...p, meaning, kanji };
+  });
+  return {
+    ...withKanjiStatus(k), vocab: (vocabByKanji.get(char) ?? []).map(withVocabStatus),
+    partList, sound: soundFamily(k),
+  };
 }
 
 function vocabDetail(id: string): VocabDetail | null {

@@ -12,8 +12,16 @@ export type KanjiItem = {
   meanings: string[];
   on: string[];
   kun: string[];
+  parts: Part[];
+  phon?: string; // the component that hints at the on'yomi (飯 → 反), from KanjiVG
   status?: CardStatus;
 };
+
+// A visible component of a kanji. r: it's the kanji's radical; p: it carries the sound.
+export type Part = { c: string; r?: 1; p?: 1 };
+
+// Meaning and on'yomi of a component that isn't itself a JLPT kanji (氵, 昜).
+export type Component = { m: string; on: string[] };
 
 export type VocabItem = {
   id: string; // "word|reading": stable across data rebuilds, so progress stays attached
@@ -26,7 +34,7 @@ export type VocabItem = {
   status?: CardStatus;
 };
 
-export type DataFile = { builtAt: string; kanji: KanjiItem[]; vocab: VocabItem[] };
+export type DataFile = { builtAt: string; kanji: KanjiItem[]; vocab: VocabItem[]; components: Record<string, Component> };
 
 // KanjiVG stroke paths in drawing order (109×109 viewBox), plus stroke-number label positions.
 export type StrokeData = { d: string[]; n: [number, number][] };
@@ -43,7 +51,18 @@ export type ExportFile = { app: 'kanji'; version: 1; exportedAt: string; events:
 
 // --- view models -------------------------------------------------------------
 
-export type KanjiDetail = KanjiItem & { vocab: VocabItem[] };
+export type PartDetail = Part & { meaning: string; kanji: boolean };
+
+// Kanji sharing a sound part. `shares`: has an on'yomi in common with the kanji being viewed
+// (ignoring dakuten, so 板 バン matches 反 ハン).
+export type SoundMember = Pick<KanjiItem, 'char' | 'on' | 'status'> & { meaning: string; shares: boolean };
+export type SoundFamily = {
+  char: string; on: string[]; meaning: string; kanji: boolean;
+  shared: string[]; // this kanji's on'yomi that the sound part or its family also have
+  members: SoundMember[];
+};
+
+export type KanjiDetail = KanjiItem & { vocab: VocabItem[]; partList: PartDetail[]; sound: SoundFamily | null };
 export type VocabDetail = VocabItem & { kanji: Pick<KanjiItem, 'char' | 'meanings'>[] };
 
 export type Lesson =

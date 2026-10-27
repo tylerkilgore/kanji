@@ -25,6 +25,7 @@ The build uses relative paths, so it works under any subpath (such as `/kanji/`)
 ## How it works
 
 - **Lessons**: new kanji in JLPT order (N5 first), most frequent first, each with an animated stroke-order diagram. Each word unlocks once you've learned all of its kanji. Daily limits are set in Settings.
+- **Parts and sound families**: each kanji page breaks the kanji into its components (from KanjiVG), marking the radical and the part that hints at the on'yomi. It also lists the other JLPT kanji built on that sound part (飯 → 反 販 版 坂 板, all ハン) and fades the exceptions. Lesson and review cards show a one-line version (飠 eat + 反 ハン).
 - **Reviews**: type the reading. Romaji converts to kana as you type, and a Japanese keyboard works too. Kanji cards accept any on/kun reading. Correct answers let you grade Hard/Good/Easy; a wrong answer means Again (or "I was right" for typos). On desktop, Enter picks the suggested grade and 1–4 pick any grade.
 - **Progress**: stored in the browser (IndexedDB) as an append-only event log ("learned X", "reviewed X: Good"). Card state is rebuilt by replaying the log through FSRS, which is deterministic.
 - **Sync**: Settings → Export progress produces a JSON file (on a phone, the share sheet lets you AirDrop it or save it to Files). Import it on the other device. An import merges the logs, deduplicating events by id, so you can sync in either direction, any number of times, without overwriting anything. The export file is also your backup.
@@ -37,4 +38,4 @@ Words are keyed by `word|reading` and kanji by character, so rebuilding the data
 - Kanji: [kanji-data](https://github.com/davidluzgouveia/kanji-data) (MIT), derived from KANJIDIC2, with JLPT levels from Jonathan Waller's lists
 - JLPT vocabulary: [open-anki-jlpt-decks](https://github.com/jamsinclair/open-anki-jlpt-decks) (MIT)
 - Extra example words: [JMdict](https://www.edrdg.org/jmdict/j_jmdict.html) via [jmdict-simplified](https://github.com/scriptin/jmdict-simplified) (CC BY-SA 4.0, EDRDG)
-- Stroke order: [KanjiVG](https://kanjivg.tagaini.net) by Ulrich Apel (CC BY-SA 3.0)
+- Stroke order, components and sound parts: [KanjiVG](https://kanjivg.tagaini.net) by Ulrich Apel (CC BY-SA 3.0)

@@ -21,6 +21,10 @@ export function kanjiAnswers(k: Pick<KanjiItem, 'on' | 'kun'>): string[] {
 
 export const isCorrect = (given: string, accepted: string[]) => accepted.includes(normalize(given));
 
+// For comparing on'yomi across a sound family: ignores dakuten/handakuten, since
+// compounds voice them (板 バン, 反 ハン).
+export const plainOn = (r: string) => normalize(r).normalize('NFD').replace(/[\u3099\u309a]/g, '');
+
 // On'yomi are conventionally shown in katakana.
 export const onDisplay = (r: string) => toKatakana(r);
 
