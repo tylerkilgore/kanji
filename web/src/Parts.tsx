@@ -45,7 +45,7 @@ export function Parts({ k }: { k: K }) {
             {partList.map((p) => {
               const body = (
                 <>
-                  <span className="pglyph jp">{p.c}</span>
+                  <span className="pglyph jp">{p.c}{p.n && <small className="times">×{p.n}</small>}</span>
                   <span className="pmean">{p.meaning || '—'}</span>
                   {PART_ROLE(p) && <span className={`prole ${PART_ROLE(p)}`}>{PART_ROLE(p)}</span>}
                 </>
@@ -105,7 +105,7 @@ export function PartsHint({ k }: { k: K }) {
       {partList.map((p, i) => (
         <span key={p.c}>
           {i > 0 && <span className="plus">+</span>}
-          <span className="jp pc">{p.c}</span>{' '}
+          <span className="jp pc">{p.c}</span>{p.n && <small className="times">×{p.n}</small>}{' '}
           {p.p && soundReading
             ? <span className="sread jp">{soundReading}</span>
             : <span className="muted">{p.meaning.toLowerCase()}</span>}

@@ -4,6 +4,7 @@ import { api } from './store.ts';
 import StrokeOrder from './StrokeOrder.tsx';
 import { Example, SpeakButton } from './Example.tsx';
 import { Parts } from './Parts.tsx';
+import { ActorCard, SceneBuilder } from './Story.tsx';
 import { LevelBadge, Readings, Screen, StatusTag, VocabRow, kanjiHref, useLoad } from './ui.tsx';
 
 function untilText(ms: number) {
@@ -58,6 +59,12 @@ export function Home() {
           <Bar label="Words" {...s.vocab} />
           <p className="legend"><i className="lg-m" /> mastered (3+ weeks) <i className="lg-s" /> started</p>
         </section>
+
+        <a className="guide-link" href="#/cast">
+          <span className="jp">役者</span>
+          <span><b>Your cast</b><small>The characters you've given each part, used in every story</small></span>
+          <span className="chev">›</span>
+        </a>
 
         <a className="guide-link" href="#/guide">
           <span className="jp">音訓</span>
@@ -146,11 +153,39 @@ export function KanjiPage({ char }: { char: string }) {
           {k.grade ? `Grade ${k.grade}` : 'Secondary school'}{k.freq ? ` · #${k.freq} most common` : ''}
         </p>
         <Parts k={k} />
+        <h3>Your story</h3>
+        <SceneBuilder k={k} />
         <h3>Stroke order</h3>
         <StrokeOrder char={k.char} />
         <h3>Words <small className="muted">{k.vocab.length}</small></h3>
         <div className="vlist">{k.vocab.map((v) => <VocabRow key={v.id} v={v} />)}</div>
         {!k.vocab.length && <p className="muted">Mostly used in names; no common words found.</p>}
+      </div>
+    </Screen>
+  );
+}
+
+export function CastPage() {
+  const [list] = useLoad(api.cast, []);
+  if (!list) return <Screen back="history" title="Your cast"><p className="muted pad">Loading…</p></Screen>;
+  const cast = list.filter((e) => e.actor).length;
+  return (
+    <Screen back="history" title="Your cast">
+      <div className="castpage">
+        <p className="muted">
+          Each part gets one recurring character, which appears in the story of every kanji that contains it.
+          {list.length > 0 && ` ${cast} of ${list.length} parts from your kanji so far have a character.`}
+        </p>
+        {!list.length && <p className="muted">Parts appear here as you start learning kanji.</p>}
+        {list.map((e) => (
+          <div key={e.part} className="cast-entry">
+            <ActorCard part={e.part} meaning={e.meaning} actor={e.actor} note={`${e.usedIn.length} kanji`} onSaved={() => {}} />
+            <div className="cast-uses jp">
+              {e.usedIn.slice(0, 12).map((c) => <a key={c} href={kanjiHref(c)}>{c}</a>)}
+              {e.usedIn.length > 12 && <span className="muted">…</span>}
+            </div>
+          </div>
+        ))}
       </div>
     </Screen>
   );

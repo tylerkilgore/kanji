@@ -4,6 +4,7 @@ import { api } from './store.ts';
 import StrokeOrder from './StrokeOrder.tsx';
 import { Example, SpeakButton } from './Example.tsx';
 import { PartsHint } from './Parts.tsx';
+import { SceneBuilder } from './Story.tsx';
 import { LevelBadge, Readings, Screen, VocabRow, kanjiHref } from './ui.tsx';
 
 const BATCH = 5;
@@ -33,6 +34,7 @@ export default function LearnSession() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).closest('input, textarea')) return; // typing a story
       if (e.key === 'Enter' || e.key === 'ArrowRight') next();
       if (e.key === 'ArrowLeft') setIdx((i) => Math.max(0, i - 1));
     };
@@ -76,6 +78,8 @@ export default function LearnSession() {
                 {lesson.item.grade ? `Grade ${lesson.item.grade}` : 'Secondary school'}
                 {lesson.item.freq ? ` · #${lesson.item.freq} most common` : ''}
               </p>
+              <h3>Your story</h3>
+              <SceneBuilder k={lesson.item} />
               <h3>Stroke order</h3>
               <StrokeOrder key={lesson.item.char} char={lesson.item.char} size={150} />
               {lesson.item.vocab.length > 0 && <h3>Words that use it</h3>}

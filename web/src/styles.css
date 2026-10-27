@@ -213,6 +213,63 @@ main.with-tabs .screen { padding-bottom: calc(5rem + env(safe-area-inset-bottom)
 .seg button { padding: 0.55rem 0.8rem; background: none; border: 0; color: var(--muted); font: inherit; font-size: 0.9rem; }
 .seg button.on { background: var(--ink); color: var(--bg); font-weight: 600; }
 
+/* --- memory stories ------------------------------------------------------------------ */
+.scene { display: flex; flex-direction: column; gap: 0.6rem; text-align: left; }
+.cast-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: 0.5rem; }
+.actor {
+  display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.5rem 0.7rem; text-align: left;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+}
+.actor.uncast { border-style: dashed; }
+.actor.editing { flex-direction: column; align-items: stretch; grid-column: 1 / -1; gap: 0.5rem; }
+.actor.editing p { margin: 0; }
+.actor-head { display: flex; align-items: baseline; gap: 0.6rem; }
+.aglyph { font-size: 1.9rem; line-height: 1.1; }
+.abody { display: flex; flex-direction: column; min-width: 0; }
+.aname { font-weight: 600; overflow-wrap: anywhere; }
+.acast { color: var(--accent); font-weight: 600; font-size: 0.9rem; }
+.ameta { font-size: 0.75rem; color: var(--muted); }
+.actor-buttons { display: flex; justify-content: flex-end; gap: 0.5rem; }
+.actor-buttons .btn { padding-block: 0.45rem; }
+
+.text-in {
+  width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; /* 16px stops iOS zooming in */
+}
+.text-in:focus { outline: 2px solid color-mix(in srgb, var(--accent-2) 60%, transparent); outline-offset: 0; }
+textarea.story { resize: vertical; min-height: 5.5rem; line-height: 1.45; }
+
+.checks { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.check {
+  padding: 0.15rem 0.6rem; border-radius: 99px; font-size: 0.8rem; color: var(--muted);
+  border: 1px solid var(--line); transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.check.ok { color: var(--right); border-color: color-mix(in srgb, var(--right) 55%, var(--line)); background: color-mix(in srgb, var(--right) 12%, transparent); }
+.check.optional:not(.ok) { border-style: dashed; }
+
+.scene-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.spark { padding: 0.4rem 0.8rem; font-size: 0.9rem; }
+.twist {
+  flex: 1 1 12rem; padding: 0.4rem 0.7rem; border: 1px dashed var(--accent); border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--ink); font-size: 0.88rem; text-align: left;
+}
+.scene-status { margin-left: auto; font-size: 0.8rem; color: var(--right); }
+.btn.small, .spark { min-height: 2.2rem; }
+.btn.small { padding: 0.35rem 0.8rem; font-size: 0.85rem; }
+
+.hint { margin-top: 0.5rem; padding: 0.55rem 0.8rem; border-radius: 10px; background: var(--card); border: 1px dashed var(--line); font-size: 0.95rem; }
+.story-recall { display: block; margin: 0.6rem 0; padding: 0.55rem 0.8rem; border-left: 3px solid var(--accent-2); background: var(--card); border-radius: 0 10px 10px 0; font-size: 0.92rem; }
+.story-recall p { margin: 0 0 0.25rem; }
+.story-recall a { color: var(--muted); font-size: 0.85rem; }
+.story-recall.empty { color: var(--muted); border-left-color: var(--line); }
+.story-recall.weak { border-left-color: var(--accent); }
+.weak-note { color: var(--accent); font-size: 0.85rem; }
+
+.castpage { display: flex; flex-direction: column; gap: 0.6rem; padding-bottom: 2rem; }
+.cast-entry { display: flex; flex-direction: column; gap: 0.3rem; }
+.cast-uses { display: flex; flex-wrap: wrap; gap: 0.15rem 0.5rem; padding-left: 0.4rem; font-size: 1.05rem; }
+.cast-uses a { color: var(--muted); }
+
 /* --- readings guide ------------------------------------------------------------ */
 .guide { padding-bottom: 2rem; }
 .guide p { margin: 0.5rem 0; }
@@ -265,6 +322,7 @@ main.with-tabs .screen { padding-bottom: calc(5rem + env(safe-area-inset-bottom)
 
 .parts-hint { margin: 0.25rem 0 0.5rem; font-size: 0.95rem; }
 .parts-hint .pc { font-size: 1.2rem; }
+.times { font-family: var(--sans); font-size: 0.55em; color: var(--muted); margin-left: 0.1em; }
 .parts-hint .plus { color: var(--muted); margin: 0 0.4rem; }
 
 .lesson-nav { display: grid; grid-template-columns: 1fr 2fr; gap: 0.6rem; position: sticky; bottom: 0; padding: 0.5rem 0 calc(0.5rem + env(safe-area-inset-bottom)); background: var(--bg); }

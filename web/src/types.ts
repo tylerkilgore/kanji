@@ -17,8 +17,9 @@ export type KanjiItem = {
   status?: CardStatus;
 };
 
-// A visible component of a kanji. r: it's the kanji's radical; p: it carries the sound.
-export type Part = { c: string; r?: 1; p?: 1 };
+// A visible component of a kanji. r: it's the kanji's radical; p: it carries the sound;
+// n: how many times it appears (林 = 木 ×2).
+export type Part = { c: string; r?: 1; p?: 1; n?: number };
 
 // Meaning and on'yomi of a component that isn't itself a JLPT kanji (氵, 昜).
 export type Component = { m: string; on: string[] };
@@ -49,13 +50,19 @@ type EventBase = { id: string; ts: number };
 export type StudyEvent =
   | (EventBase & { type: 'learn'; key: string })
   | (EventBase & { type: 'review'; key: string; rating: 1 | 2 | 3 | 4; answer?: string; ms?: number })
-  | (EventBase & { type: 'settings'; settings: Partial<Settings> });
+  | (EventBase & { type: 'settings'; settings: Partial<Settings> })
+  // Memory stories: a recurring character for each part, and a scene for each kanji.
+  // The latest edit wins; an empty name or text clears it.
+  | (EventBase & { type: 'actor'; part: string; name: string; desc?: string })
+  | (EventBase & { type: 'story'; char: string; text: string });
+
+export type Actor = { name: string; desc?: string };
 
 export type ExportFile = { app: 'kanji'; version: 1; exportedAt: string; events: StudyEvent[] };
 
 // --- view models -------------------------------------------------------------
 
-export type PartDetail = Part & { meaning: string; kanji: boolean };
+export type PartDetail = Part & { meaning: string; kanji: boolean; actor?: Actor };
 
 // Kanji sharing a sound part. `shares`: has an on'yomi in common with the kanji being viewed
 // (ignoring dakuten, so 板 バン matches 反 ハン).
@@ -66,7 +73,18 @@ export type SoundFamily = {
   members: SoundMember[];
 };
 
-export type KanjiDetail = KanjiItem & { vocab: VocabItem[]; partList: PartDetail[]; sound: SoundFamily | null };
+export type KanjiDetail = KanjiItem & {
+  vocab: VocabItem[];
+  partList: PartDetail[];
+  sound: SoundFamily | null;
+  story?: string;
+  self?: Actor; // this kanji's own character, when it's a part in other kanji
+  usedIn: string[]; // JLPT kanji that contain this one as a part
+  misses: number; // times answered Again
+};
+
+// One entry on the Cast page: a part, its character, and the kanji it appears in.
+export type CastEntry = { part: string; meaning: string; kanji: boolean; actor?: Actor; usedIn: string[]; learned: number };
 export type VocabDetail = VocabItem & { kanji: Pick<KanjiItem, 'char' | 'meanings'>[] };
 
 export type Lesson =

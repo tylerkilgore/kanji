@@ -122,6 +122,19 @@ export default function Guide() {
           and 侍 read ジ. Each kanji page shows its parts and its sound family, with exceptions faded. See <K c="飯" /> for an example.
         </p>
 
+        <h3>Memory stories</h3>
+        <p>
+          Each part gets a recurring <b>character</b>, which you invent once and reuse everywhere the part appears
+          (木 might be a grumpy old oak). Each kanji gets a short <b>scene</b> that puts its characters together with
+          its meaning. The scene builder checks off each character and the keyword as you write, and <b>Spark</b>
+          deals a twist when you're stuck. Strange, loud and smelly scenes stick best.
+        </p>
+        <p>
+          In reviews, 💡 shows your characters, then your scene with the keyword blanked. A hinted answer can be
+          graded Hard at most. Kanji you keep missing get flagged so you can rewrite their scenes. All your characters are
+          on the <a href="#/cast">Cast</a> page.
+        </p>
+
         <h3>How the app trains this</h3>
         <p>
           <b>Kanji cards</b> ask for the meaning. Within each level, a kanji's parts are taught before the kanji

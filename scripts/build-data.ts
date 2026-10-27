@@ -242,15 +242,24 @@ function components(svg: string): { parts: Part[]; phon?: string } {
   const radical = tops.find((g) => g.attrs.radical === 'general') ?? tops.find((g) => g.attrs.radical === 'tradit');
 
   const parts: Part[] = [];
+  let count = 0;
   for (const g of tops) {
     const c = single(g.attrs.element);
-    if (!c || parts.some((p) => p.c === c)) continue; // skips KanjiVG's private "CDP-…" glyphs and split repeats
+    if (!c) continue; // KanjiVG's private "CDP-…" glyphs
+    const seen = parts.find((p) => p.c === c);
+    if (seen) {
+      // kvg:part marks one component split around another (the halves of 衣 in 裏): same part.
+      // Otherwise it's a real repeat, as in 林 = 木 + 木.
+      if (!g.attrs.part) { seen.n = (seen.n ?? 1) + 1; count++; }
+      continue;
+    }
     const part: Part = { c };
     if (g === radical) part.r = 1;
     if (phon && phonGroup && find(g, (x) => x === phonGroup)) part.p = 1;
     parts.push(part);
+    count++;
   }
-  return { parts: parts.length > 1 ? parts : [], phon };
+  return { parts: count > 1 ? parts : [], phon };
 }
 
 // KANJIDIC names radical forms by their dictionary role ("Radical Number 9"), so give

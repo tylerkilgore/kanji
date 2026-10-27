@@ -4,7 +4,7 @@
 
 import { createEmptyCard, fsrs, type Card, type Grade } from 'ts-fsrs';
 import type {
-  CardKind, CardStatus, DataFile, ExportFile, IntervalPreview, KanjiDetail, KanjiItem, KanjiListItem,
+  Actor, CastEntry, CardKind, CardStatus, DataFile, ExportFile, IntervalPreview, KanjiDetail, KanjiItem, KanjiListItem,
   Lesson, PartDetail, Review, Sentence, Settings, SoundFamily, StrokeData, StudyEvent, Summary, VocabDetail, VocabItem,
 } from './types.ts';
 import { plainOn } from './kana.ts';
@@ -54,11 +54,15 @@ let vocabById: Map<string, VocabItem>;
 let vocabKanji: Map<string, string[]>; // vocab id → the JLPT kanji it contains
 let vocabByKanji: Map<string, VocabItem[]>;
 let soundFamilies: Map<string, KanjiItem[]>; // sound part → JLPT kanji built on it
+let partUses: Map<string, string[]>; // part → JLPT kanji that contain it
 
 let events: StudyEvent[] = [];
 const eventIds = new Set<string>();
 let cards = new Map<string, CardState>();
 let settings: Settings = { ...DEFAULT_SETTINGS };
+let actors = new Map<string, Actor>(); // part → character
+let stories = new Map<string, string>(); // kanji → scene
+let misses = new Map<string, number>(); // card key → times answered Again
 
 const cardKey = (kind: CardKind, ref: string) => `${kind}:${ref}`;
 const scheduler = () => fsrs({ request_retention: settings.retention, enable_fuzz: true });
@@ -69,6 +73,17 @@ function apply(e: StudyEvent, f = scheduler()) {
     settings = { ...settings, ...e.settings };
     return;
   }
+  if (e.type === 'actor') {
+    if (e.name.trim()) actors.set(e.part, { name: e.name.trim(), ...(e.desc?.trim() ? { desc: e.desc.trim() } : {}) });
+    else actors.delete(e.part);
+    return;
+  }
+  if (e.type === 'story') {
+    if (e.text.trim()) stories.set(e.char, e.text.trim());
+    else stories.delete(e.char);
+    return;
+  }
+  if (e.type === 'review' && e.rating === 1) misses.set(e.key, (misses.get(e.key) ?? 0) + 1);
   let c = cards.get(e.key);
   if (!c) {
     c = { card: createEmptyCard(new Date(e.ts)), createdAt: e.ts };
@@ -83,6 +98,9 @@ function replay() {
   settings = { ...DEFAULT_SETTINGS };
   for (const e of events) if (e.type === 'settings') apply(e);
   cards = new Map();
+  actors = new Map();
+  stories = new Map();
+  misses = new Map();
   const f = scheduler();
   for (const e of events) if (e.type !== 'settings') apply(e, f);
 }
@@ -112,6 +130,10 @@ const ready: Promise<void> = (async () => {
       if (!vocabByKanji.has(ch)) vocabByKanji.set(ch, []);
       vocabByKanji.get(ch)!.push(v);
     }
+  }
+  partUses = new Map();
+  for (const k of data.kanji) {
+    for (const p of k.parts) partUses.set(p.c, [...(partUses.get(p.c) ?? []), k.char]);
   }
   soundFamilies = new Map();
   for (const k of data.kanji) {
@@ -182,12 +204,27 @@ function kanjiDetail(char: string): KanjiDetail | null {
   if (!k) return null;
   const partList: PartDetail[] = k.parts.map((p) => {
     const { meaning, kanji } = componentInfo(p.c);
-    return { ...p, meaning, kanji };
+    return { ...p, meaning, kanji, actor: actors.get(p.c) };
   });
   return {
     ...withKanjiStatus(k), vocab: (vocabByKanji.get(char) ?? []).map(withVocabStatus),
     partList, sound: soundFamily(k),
+    story: stories.get(char), self: actors.get(char), usedIn: partUses.get(char) ?? [],
+    misses: misses.get(cardKey('kanji', char)) ?? 0,
   };
+}
+
+// Every part that appears in a kanji you've started, plus any you've already cast,
+// most widely used first.
+function castList(): CastEntry[] {
+  const started = (c: string) => cards.has(cardKey('kanji', c));
+  const parts = new Set(actors.keys());
+  for (const [part, uses] of partUses) if (uses.some(started)) parts.add(part);
+  return [...parts].map((part) => {
+    const usedIn = partUses.get(part) ?? [];
+    const { meaning, kanji } = componentInfo(part);
+    return { part, meaning, kanji, actor: actors.get(part), usedIn, learned: usedIn.filter(started).length };
+  }).sort((a, b) => b.learned - a.learned || b.usedIn.length - a.usedIn.length);
 }
 
 function vocabDetail(id: string): VocabDetail | null {
@@ -339,6 +376,8 @@ const isEvent = (e: unknown): e is StudyEvent => {
   const x = e as StudyEvent;
   return !!x && typeof x.id === 'string' && typeof x.ts === 'number'
     && (x.type === 'settings' ? typeof x.settings === 'object'
+      : x.type === 'actor' ? typeof x.part === 'string' && typeof x.name === 'string'
+      : x.type === 'story' ? typeof x.char === 'string' && typeof x.text === 'string'
       : (x.type === 'learn' || x.type === 'review') && typeof x.key === 'string');
 };
 
@@ -387,6 +426,9 @@ export const api = {
   search: when(search),
   settings: when(() => ({ ...settings })),
   saveSettings: when(async (s: Partial<Settings>) => { await record({ type: 'settings', settings: s }); return { ...settings }; }),
+  cast: when(castList),
+  saveActor: when((part: string, name: string, desc: string = '') => record({ type: 'actor', part, name, desc })),
+  saveStory: when((char: string, text: string) => record({ type: 'story', char, text })),
   exportFile: when(exportFile),
   importFile: when(importFile),
   info: when(() => ({ events: events.length, cards: cards.size, dataBuiltAt: data.builtAt })),

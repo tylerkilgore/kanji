@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import Guide from './Guide.tsx';
 import LearnSession from './Learn.tsx';
 import ReviewSession from './Review.tsx';
-import { Browse, Home, KanjiPage, SettingsPage, VocabPage } from './pages.tsx';
+import { Browse, CastPage, Home, KanjiPage, SettingsPage, VocabPage } from './pages.tsx';
 import { useRoute } from './ui.tsx';
 import './styles.css';
 
@@ -19,9 +19,10 @@ function App() {
   else if (page === 'vocab' && arg) body = <VocabPage id={arg} />;
   else if (page === 'settings') body = <SettingsPage />;
   else if (page === 'guide') body = <Guide />;
+  else if (page === 'cast') body = <CastPage />;
   else body = <Home />;
 
-  const tab = page === 'kanji' || page === 'vocab' ? 'browse' : page === 'guide' ? 'home' : page || 'home';
+  const tab = page === 'kanji' || page === 'vocab' ? 'browse' : page === 'guide' || page === 'cast' ? 'home' : page || 'home';
   return (
     <>
       <main className="with-tabs">{body}</main>
